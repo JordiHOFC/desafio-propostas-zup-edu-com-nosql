@@ -1,0 +1,198 @@
+version: '3'
+services:
+
+  zookeeper:
+    image: "confluentinc/cp-zookeeper:5.2.1"
+    networks:
+      - rede-spring
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+
+  kafka:
+    image: "confluentinc/cp-kafka:5.2.1"
+    ports:
+      - 9092:9092
+    networks:
+      - rede-spring
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+  postgres:
+    image: 'postgres:alpine'
+    networks:
+      - rede-spring
+    volumes:
+      - postgres-volume:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: keycloak
+      POSTGRES_HOST: postgres
+
+  keycloak:
+    image: jboss/keycloak
+    container_name: keycloak
+    restart: on-failure
+    networks:
+      - rede-spring
+    ports:
+      - 18443:8443
+      - 18080:8080
+      - 19990:9990
+    depends_on:
+      # Just a delay to wait for postgres! This is not recommended!
+      - grafana
+      - prometheus
+      - jaeger
+      - kafka
+      - zookeeper
+      - contas
+      - analise
+      - transacoes
+      - postgres
+      - db
+    environment:
+      DB_VENDOR: postgres
+      DB_ADDR: postgres
+      DB_PORT: 5432
+      DB_DATABASE: keycloak
+      DB_USER: keycloak
+      DB_PASSWORD: password
+      POSTGRES_PORT_5432_TCP_ADDR: 127.0.0.1
+      KEYCLOAK_FRONTEND_URL: http://keycloak:8080/auth
+
+  analise:
+    image: 'zupacademy/analise-financeira'
+    networks:
+      - rede-spring
+    ports:
+      - 9999:9999
+    environment:
+      SERVER_PORT: 9999
+      LOG_LEVEL: INFO
+      URL_SISTEMA_CARTAO: http://contas:8888/api/cartoes
+      JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+
+  contas:
+    image: 'zupacademy/contas'
+    networks:
+      - rede-spring
+    ports:
+      - 8888:8888
+    environment:
+      SERVER_PORT: 8888
+      LOG_LEVEL: INFO
+      JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+
+  transacoes:
+    image: 'zupacademy/transacoes'
+    networks:
+      - rede-spring
+    ports:
+      - 7777:7777
+    depends_on:
+      - kafka
+    environment:
+      SERVER_PORT: 7777
+      LOG_LEVEL: INFO
+      KAFKA_HOST: "kafka:29092"
+      JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+
+  jaeger:
+    image: jaegertracing/all-in-one
+    networks:
+      - rede-spring
+    ports:
+      - 5775:5775/udp
+      - 6831:6831/udp
+      - 6832:6832/udp
+      - 5778:5778
+      - 16686:16686
+      - 14268:14268
+      - 14250:14250
+      - 9411:9411
+    environment:
+      COLLECTOR_ZIPKIN_HTTP_PORT: 9411
+
+  prometheus:
+    image: prom/prometheus
+    networks:
+      - rede-spring
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana
+    networks:
+      - rede-spring
+    volumes:
+      - grafana-volume:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  vault:
+    image: vault:1.5.3
+    networks:
+      - rede-spring
+    ports:
+      - 8200:8200
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ee413645-dbe8-4848-afc6-6bb2768ada75
+      VAULT_TOKEN: ee413645-dbe8-4848-afc6-6bb2768ada75
+      VAULT_ADDR: http://127.0.0.1:8200
+
+  db:
+    container_name: mongo
+    image: mongo
+    restart: always
+    networks:
+      - rede-spring
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: root
+    ports:
+      - '8081:8081'
+      
+  proposta:
+    container_name: proposta
+    build:  ./
+    restart: on-failure
+    ports:
+      - '8082:8082'
+    networks:
+      - rede-spring
+    depends_on:
+      - grafana
+      - prometheus
+      - jaeger
+      - kafka
+      - zookeeper
+      - contas
+      - analise
+      - transacoes
+      - postgres
+      - db
+      - keycloak
+
+
+volumes:
+  grafana-volume:
+  prometheus-volume:
+  postgres-volume:
+
+networks:
+  rede-spring:
+    driver: "bridge"
