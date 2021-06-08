@@ -2,13 +2,14 @@ package br.com.zupedu.propostasComNoSql.propostas;
 
 import br.com.zupedu.propostasComNoSql.validator.CPForCNPJ;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.springframework.validation.annotation.Validated;
 
+import javax.validation.Valid;
 import javax.validation.constraints.Email;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.PositiveOrZero;
 import java.math.BigDecimal;
-
 
 public class PropostaRequest {
 
@@ -42,7 +43,7 @@ public class PropostaRequest {
     //criar getset
 
     public Proposta toProposta(){
-        return new Proposta(documento,email, nome, endereco, salario);
+        return new Proposta( documento,email, nome, endereco, salario);
     }
 
     public String getDocumento() {
