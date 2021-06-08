@@ -163,29 +163,30 @@ services:
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: root
       ME_CONFIG_MONGODB_ADMINPASSWORD: root
+      MONGO_INITDB_DATABASE: propostas
     ports:
-      - '8081:8081'
+      - '8081:27017'
       
-  proposta:
-    container_name: proposta
-    build:  ./
-    restart: on-failure
-    ports:
-      - '8082:8082'
-    networks:
-      - rede-spring
-    depends_on:
-      - grafana
-      - prometheus
-      - jaeger
-      - kafka
-      - zookeeper
-      - contas
-      - analise
-      - transacoes
-      - postgres
-      - db
-      - keycloak
+#  proposta:
+#    container_name: proposta
+#    build:  ./
+#    restart: on-failure
+#    ports:
+#      - '8082:8082'
+#    networks:
+#      - rede-spring
+#    depends_on:
+#      - grafana
+#      - prometheus
+#      - jaeger
+#      - kafka
+#      - zookeeper
+#      - contas
+#      - analise
+#      - transacoes
+#      - postgres
+#      - db
+#      - keycloak
 
 
 volumes:
